@@ -1,0 +1,23 @@
+spring:
+  application: name=data-jpa
+
+  datasource:
+    # MYSQL
+    url: jdbc:mysql://localhost:3306/jpa?useSSL=false&serverTimezone=UTC
+    username: root
+    password: 7404juseung!
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create # create, none
+    properties:
+      hibernate:
+        #        show_sql: true
+        format_sql: true
+#        default_batch_fetch_size: 1000
+
+
+logging.level:
+  org.hibernate.SQL: debug
+#  org.hibernate.type: trace
