@@ -1,5 +1,8 @@
 package study.datajpa.repository;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -27,6 +30,7 @@ class MemberRepositoryTest {
 
     @Autowired MemberRepository memberRepository;
     @Autowired TeamRepository teamRepository;
+    @PersistenceContext EntityManager em;
 
     @Test
     public void testMember() {
@@ -152,6 +156,7 @@ class MemberRepositoryTest {
         //when
         PageRequest pageRequest = PageRequest.of(0, 3, Sort.by(Sort.Direction.DESC, "username"));
         Page<Member> page = memberRepository.findByAge(10, pageRequest); // 이때 반환 타입이 Slice라면 totalCount몰라
+        Page<MemberDto> dtoPage = page.map(m -> new MemberDto(m.getId(), m.getUsername(), m.getTeam().getName())); // 이렇게 DTO로 변환 후 API로 반환
         //then
         List<Member> content = page.getContent(); //조회된 데이터
         long totalCount = page.getTotalElements();
@@ -164,7 +169,87 @@ class MemberRepositoryTest {
         assertThat(page.getTotalElements()).isEqualTo(5); // 전체 데이터 수
         assertThat(page.getNumber()).isEqualTo(0); //페이지 번호
         assertThat(page.getTotalPages()).isEqualTo(2); //전체 페이지 번호
-        assertThat(page.isFirst()).isTrue(); //첫번째 항목인가?
+         assertThat(page.isFirst()).isTrue(); //첫번째 항목인가?
         assertThat(page.hasNext()).isTrue(); //다음 페이지가 있는가?
+    }
+
+    @Test
+    public void bulkUpdate() throws Exception {
+            //given
+        memberRepository.save(new Member("member1", 10));
+        memberRepository.save(new Member("member2", 19));
+        memberRepository.save(new Member("member3", 20));
+        memberRepository.save(new Member("member4", 21));
+        memberRepository.save(new Member("member5", 40));
+        //when
+        int resultCount = memberRepository.bulkAgePlus(20);
+
+        List<Member> result = memberRepository.findByUsername("member5");
+        Member member5 = result.get(0);
+        System.out.println("member5 = " + member5);
+        /**
+         * 위의 출력값 결과 중 member5의 age가 41이 아닌 40인 이유.
+         * 벌크 연산 관련 메소드를 실행하면 데이터베이스 레코드가 직접 업데이트해버려서 41이 되지만
+         * 영속성 컨텍스트에는 반영되지 않아 40이다.
+         * 그런 상황에 .findByUsername을 통해 조회할때 영속성 컨텍스트의 age = 40이 끌려와
+         * 41이 아닌 것 처럼 보인다.
+         *
+         * 그렇기 때문에 꼭 벌크 관련 연산이 있으면 em.flush()와 em.clear()를 호출하여 영속성 컨텍스트를 수동으로 동기화시켜주거나
+         * @
+         */
+
+        //then
+        assertThat(resultCount).isEqualTo(3);
+    }
+
+    @Test
+    public void findMemberLazy() throws Exception {
+        //given
+        //member1 -> teamA
+        //member2 -> teamB
+        Team teamA = new Team("teamA");
+        Team teamB = new Team("teamB");
+        teamRepository.save(teamA);
+        teamRepository.save(teamB);
+        memberRepository.save(new Member("member1", 10, teamA));
+        memberRepository.save(new Member("member2", 20, teamB));
+        em.flush();
+        em.clear();
+        //when
+        List<Member> members = memberRepository.findEntityGraphByUsername("member1");
+        //then
+        for (Member member : members) {
+            // 지연로딩
+            member.getTeam().getName();
+        }
+    }
+
+    @Test
+    public void queryHint() throws Exception {
+        //given
+        memberRepository.save(new Member("member1", 10));
+        em.flush();
+        em.clear();
+
+        //when
+
+        // @QueryHints 어노테이션을 사용하여 org.hibernate.readOnly를 true로 설정했기 때문에,
+        // 이 엔티티는 읽기 전용으로 처리되어, em.flush()를 호출해도 업데이트 쿼리가 실행되지 않는다.
+        Member member = memberRepository.findReadOnlyByUsername("member1");
+        member.changeUsernames("member2");
+        em.flush(); //Update Query 실행X
+    }
+
+    @Test
+    public void lock() {
+        //given
+        memberRepository.save(new Member("member1", 10));
+        em.flush();
+        em.clear();
+
+        //when
+        List<Member> member = memberRepository.findLockByUsername("member1");
+//        member.changeUsernames("member2");
+        em.flush(); //Update Query 실행X
     }
 }

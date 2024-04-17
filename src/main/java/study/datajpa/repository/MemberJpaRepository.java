@@ -60,6 +60,13 @@ public class MemberJpaRepository {
                 .getSingleResult();
     }
 
+    public int bulkAgePlus(int age) {
+        int resultCount = em.createQuery("update Member m set m.age = m.age + 1 where m.age >= :age")
+                .setParameter("age", age)
+                .executeUpdate();
+        return resultCount;
+    }
+
     /**
      * Update
      * JPA에서 수정은 변경감지 기능을 사용하면 된다.

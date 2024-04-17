@@ -1,11 +1,12 @@
 package study.datajpa.repository;
 
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.QueryHint;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 import study.datajpa.dto.MemberDto;
 import study.datajpa.entity.Member;
@@ -72,11 +73,53 @@ public interface MemberRepository extends JpaRepository<Member,Long> {
      * Page, Slice Interface를 보면 어떤
      *
      * List(자바 컬렉션) -> 추가 count 쿼리 없이 결과만 반환
+     *
+     * 실제론 이 결과를 DTO로 변환화여 반환하라
      */
 //    Page<Member> findByUsernamePage(String name, Pageable pageable); //count 쿼리 사용
 //    Slice<Member> findByUsernameSlice(String name, Pageable pageable); //count 쿼리 사용 안함
 //    List<Member> findByUsernameList(String name, Pageable pageable); //count 쿼리 사용 안함
 //    List<Member> findByUsername(String name, Sort sort);
-
     Page<Member> findByAge(int age, PageRequest pageRequest);
+
+    /*
+        아래와 같이 count 쿼리를 분리할 수도 있다.
+        count 쿼리에서 불필요하게 left join을 하게되면 비 효율적
+        count 쿼리에선 굳이 join안해도 될때
+     */
+//    @Query(value = "select m from Member m left join m.team ",
+//            countQuery = "select count(m.username) from Member m")
+//    Page<Member> findMemberAllCountBy(Pageable pageable);
+
+    @Modifying(clearAutomatically = true) // -> 얘가 있어야지 JPA에서 .getResult() 등이 아닌 .executeUpdate()가 실행된다.
+    @Query("update Member m set m.age = m.age + 1 where m.age >= :age")
+    int bulkAgePlus(@Param("age") int age);
+
+    // Member를 끌고올때 연관된 Team 같이 끌고옴
+    @Query("select m from Member m left join fetch m.team")
+    List<Member> findMemberFetchJoin();
+
+    // 원래는 fetch join 쿼리문 짜야하는데 간편하게 -> Entity Graph로 간편하게
+    @Override
+    @EntityGraph(attributePaths = {"team"})
+    List<Member> findAll();
+
+    @EntityGraph(attributePaths = {"team"})
+    @Query("select m from Member m")
+    List<Member> findMemberEntityGraph();
+
+    @EntityGraph(attributePaths = {"team"}) // or @EntityGraph("Member.all")
+    List<Member> findEntityGraphByUsername(@Param("username") String username);
+
+
+    /**
+     *     해당 쿼리를 통해 조회된 엔티티가 읽기 전용으로 처리되어, 변경 감지(dirty checking) 및 스냅샷 관리를 하지 않게 된다.
+     *     이는 메모리 사용량을 줄이고, 성능을 향상시키는 데 도움
+     */
+    @QueryHints(value = @QueryHint(name = "org.hibernate.readOnly", value = "true"))
+    Member findReadOnlyByUsername(String username);
+
+    // JPA인데 Spring Data에서 Lock을 편리하게 쓸수있도록 해준다.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    List<Member> findLockByUsername(String name);
 }
