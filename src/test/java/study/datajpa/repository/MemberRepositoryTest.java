@@ -252,4 +252,36 @@ class MemberRepositoryTest {
 //        member.changeUsernames("member2");
         em.flush(); //Update Query 실행X
     }
+
+    @Test
+    public void callCustom() {
+        memberRepository.save(new Member("member1", 10));
+        memberRepository.save(new Member("member2", 19));
+        memberRepository.save(new Member("member3", 20));
+        memberRepository.save(new Member("member4", 21));
+        memberRepository.save(new Member("member5", 40));
+        List<Member> memberCustom = memberRepository.findMemberCustom();
+        for (Member member : memberCustom) {
+            System.out.println("member = " + member);
+        }
+    }
+
+    @Test
+    public void jpaEventBaseEntity() throws Exception {
+        //given
+        Member member = new Member("member1");
+        memberRepository.save(member); //@PrePersist
+        Thread.sleep(100);
+        member.changeUsernames("member2");
+        em.flush(); //@PreUpdate
+        em.clear();
+        //when
+        Member findMember = memberRepository.findById(member.getId()).get();
+        //then
+        System.out.println("findMember.createdDate = " + findMember.getCreatedDate());
+//        System.out.println("findMember.updatedDate = " + findMember.getUpdatedDate()); // JPA
+        System.out.println("findMember.updatedDate = " + findMember.getLastModifiedDate()); // Spring Data
+        System.out.println("findMember,createdBy = " + findMember.getCreatedBy());
+        System.out.println("findMember.getLastModifiedBy() = " + findMember.getLastModifiedBy());
+    }
 }

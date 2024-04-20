@@ -25,7 +25,7 @@ import java.util.Optional;
  * `T` : 엔티티
  * `ID` : 엔티티의 식별자 타입
  */
-public interface MemberRepository extends JpaRepository<Member,Long> {
+public interface MemberRepository extends JpaRepository<Member,Long>, MemberRepositoryCustom {
 
     /**
      * Spring Data JPA에서 공통으로 지원하지 않는 메소드를 새로 구혀하고싶을때

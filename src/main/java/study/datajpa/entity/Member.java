@@ -7,7 +7,7 @@ import lombok.ToString;
 @Entity
 @Getter // 아래와 같이 하면 Setter 없앨 수 있음.
 @ToString(of = {"id", "username", "age"}) // Team은 찍으면 안돼. 연관관계로 인해 무한루프 돌 수도 있다.
-public class Member {
+public class Member extends BaseEntity {
     @Id @GeneratedValue
     @Column(name = "member_id")
     private Long id;
